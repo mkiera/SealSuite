@@ -15,6 +15,9 @@ let checkedAt: number | null = null;
 let checking = false;
 const busy = new Map<string, Progress>();
 const errors = new Map<string, string>();
+let selfUpdate: { version: string } | null = null;
+let selfProgress: number | null = null;
+let selfError: string | null = null;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const esc = (text: string) => text.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -23,25 +26,23 @@ const message = (error: unknown) => (typeof error === "string" ? error : error i
 function renderStrip() {
   const strip = $("strip");
   const pending = pendingUpdates(apps);
+  const names = [...pending.map((a) => `${a.name} ${a.offer!.version}`), ...(selfUpdate ? [`SealSuite ${selfUpdate.version}`] : [])];
   const checkErrors = apps.filter((a) => a.error);
-  const failed = !pending.length && checkedAt !== null && checkErrors.length > 0;
-  strip.className = `strip${pending.length ? "" : " quiet"}${failed ? " warn" : ""}`;
-  const title = pending.length
-    ? `${pending.length} update${pending.length > 1 ? "s" : ""} ready`
+  const failed = !names.length && checkedAt !== null && checkErrors.length > 0;
+  strip.className = `strip${names.length ? "" : " quiet"}${failed ? " warn" : ""}`;
+  const title = names.length
+    ? `${names.length} update${names.length > 1 ? "s" : ""} ready`
     : checkedAt === null
       ? "Checking for updates…"
       : checkErrors.length === apps.length
         ? "Could not check for updates"
         : "All apps up to date";
-  const sub = pending.length
-    ? pending.map((a) => `${a.name} ${a.offer!.version}`).join(" · ")
-    : checkErrors.length
-      ? esc(checkErrors[0].error!)
-      : checkedText(checkedAt, Date.now());
-  const anyBusy = pending.some((a) => busy.has(a.id));
+  const sub = selfError ?? (names.length ? names.join(" · ") : checkErrors.length ? checkErrors[0].error! : checkedText(checkedAt, Date.now()));
+  const anyBusy = busy.size > 0 || selfProgress !== null;
+  const label = selfProgress !== null ? `Updating SealSuite ${Math.round(selfProgress * 100)}%` : names.length > 1 ? "Update all" : "Update";
   strip.innerHTML = `
-    <div class="lead"><span class="pulse" aria-hidden="true"></span><div><strong>${title}</strong><div class="sub">${esc(sub)}</div></div></div>
-    ${pending.length ? `<div class="right"><span class="when">${checkedText(checkedAt, Date.now())}</span><button class="button primary" data-update-all ${anyBusy ? "disabled" : ""}>${pending.length > 1 ? "Update all" : "Update"}</button></div>` : ""}`;
+    <div class="lead"><span class="pulse" aria-hidden="true"></span><div><strong>${title}</strong><div class="sub${selfError ? " bad" : ""}">${esc(sub)}</div></div></div>
+    ${names.length ? `<div class="right"><span class="when">${checkedText(checkedAt, Date.now())}</span><button class="button primary" data-update-all ${anyBusy ? "disabled" : ""}>${label}</button></div>` : ""}`;
 }
 
 function actions(app: AppView): string {
@@ -92,7 +93,8 @@ async function check() {
   checking = true;
   render();
   try {
-    const fresh = await api.checkUpdates();
+    const [fresh, self] = await Promise.all([api.checkUpdates(), api.checkSelf().catch(() => null)]);
+    selfUpdate = self;
     // An app mid-install keeps its tile; its own result replaces it when the installer finishes.
     apps = fresh.map((a) => (busy.has(a.id) ? apps.find((b) => b.id === a.id) ?? a : a));
     checkedAt = Date.now();
@@ -117,6 +119,23 @@ async function install(id: string) {
   }
 }
 
+async function updateSelf() {
+  selfError = null;
+  selfProgress = 0;
+  render();
+  try {
+    await api.installSelf((fraction) => {
+      selfProgress = fraction;
+      renderStrip();
+    });
+  } catch (error) {
+    selfError = message(error);
+  } finally {
+    selfProgress = null;
+    render();
+  }
+}
+
 async function run(id: string, action: (id: string) => Promise<void>) {
   errors.delete(id);
   try {
@@ -137,6 +156,8 @@ document.addEventListener("click", (event) => {
   else if ("updateAll" in data) {
     void (async () => {
       for (const app of pendingUpdates(apps)) await install(app.id);
+      // SealSuite goes last: its installer closes this window.
+      if (selfUpdate && !pendingUpdates(apps).length) await updateSelf();
     })();
   }
 });

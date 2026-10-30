@@ -2,6 +2,7 @@
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
@@ -12,6 +13,28 @@ use crate::apps::{self, CatalogApp, Installed};
 use crate::releases::{self, Offer};
 
 pub const PROGRESS_EVENT: &str = "install-progress";
+
+/// App installs in flight. While any run, SealSuite refuses to update itself, since its own
+/// installer would close it and leave the app's installer unwatched.
+static INSTALLING: AtomicUsize = AtomicUsize::new(0);
+
+struct InstallGuard;
+
+impl InstallGuard {
+    fn new() -> Self {
+        INSTALLING.fetch_add(1, Ordering::SeqCst);
+        crate::selfupdate::set_busy(Some("An app is being installed.".into()));
+        InstallGuard
+    }
+}
+
+impl Drop for InstallGuard {
+    fn drop(&mut self) {
+        if INSTALLING.fetch_sub(1, Ordering::SeqCst) == 1 {
+            crate::selfupdate::set_busy(None);
+        }
+    }
+}
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -68,6 +91,7 @@ pub async fn check_updates() -> Vec<AppView> {
 #[tauri::command]
 pub async fn install_app(handle: AppHandle, id: String) -> Result<AppView, String> {
     let app = lookup(&id)?;
+    let _guard = InstallGuard::new();
     let installed = apps::detect(app);
     let offer = offer_for(app, installed.as_ref())
         .await?

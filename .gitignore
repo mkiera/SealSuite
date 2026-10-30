@@ -30,3 +30,6 @@ dist_installer/
 
 *.tmp
 src-tauri/gen/
+
+# Written by scripts/versioning.mjs for each CI build.
+src/generated/

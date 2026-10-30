@@ -1,0 +1,102 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Public repository: GitHub-hosted minutes are free, and Windows builds the installer.
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache the Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Validate release version and changelog
+        id: version
+        shell: pwsh
+        run: node scripts/versioning.mjs release "$env:GITHUB_REF_NAME"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+
+      # npx, not `npm run tauri build -- --no-bundle`: npm swallows the flag and
+      # Tauri bundles anyway. Leaves src-tauri\target\release\sealsuite.exe.
+      - name: Build the app
+        shell: pwsh
+        run: npx tauri build --no-bundle --config "$env:SS_BUILD_CONFIG"
+
+      - name: Derive numeric version for the installer
+        id: vernum
+        shell: bash
+        run: |
+          VERNUM=$(node scripts/vernum.mjs)
+          echo "VERNUM=$VERNUM" >> $GITHUB_OUTPUT
+          echo "numeric version: $VERNUM"
+
+      - name: Ensure Inno Setup is available
+        shell: pwsh
+        run: |
+          function Find-Iscc {
+            $onPath = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source
+            if ($onPath) { return $onPath }
+            # winget installs Inno per-user, outside both Program Files roots.
+            $globs = @("${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe", "$env:LOCALAPPDATA\Programs\Inno Setup *\ISCC.exe")
+            return (Get-ChildItem -Path $globs -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName)
+          }
+          $iscc = Find-Iscc
+          if (-not $iscc) {
+            Write-Host "Inno Setup not found on this runner - installing it."
+            choco install innosetup -y --no-progress
+            $iscc = Find-Iscc
+          }
+          if (-not $iscc) { throw "ISCC.exe still not found after installing Inno Setup" }
+          Write-Host "Using $iscc"
+          # Via GITHUB_ENV because a fresh choco shim is invisible to this step.
+          Add-Content -Path $env:GITHUB_ENV -Value "ISCC=$iscc"
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "$env:ISCC" "/DAppVersion=${{ steps.version.outputs.VERSION }}" "/DVersionNumeric=${{ steps.vernum.outputs.VERNUM }}" installer.iss
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.version.outputs.RELEASE_NAME }}
+          body_path: src/generated/release-notes.md
+          files: dist_installer/SealSuite-Setup.exe
+          # Without this a missing installer publishes a green, assetless release
+          # that the updater silently skips.
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: ${{ steps.version.outputs.IS_PRERELEASE == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

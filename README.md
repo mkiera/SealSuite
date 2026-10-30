@@ -42,7 +42,10 @@ cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 On Linux, `cargo` needs Tauri's system packages (WebKitGTK 4.1 and others, see
-`.github/workflows/build-test.yml`).
+[Tauri's prerequisites](https://tauri.app/start/prerequisites/)).
+
+Every pushed branch builds a Windows installer in GitHub Actions. Releases and
+version numbers follow [docs/versioning.md](docs/versioning.md).
 
 ## License
 

@@ -207,6 +207,10 @@ button {
   margin-top: 2px;
 }
 
+.strip .sub.bad {
+  color: var(--danger);
+}
+
 .strip .right {
   display: flex;
   gap: 12px;

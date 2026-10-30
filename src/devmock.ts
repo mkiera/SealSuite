@@ -48,4 +48,14 @@ export const mock: Backend = {
   onProgress(handler) {
     progress = handler;
   },
+  async checkSelf() {
+    return params.has("self") ? { version: "1.0.1" } : null;
+  },
+  async installSelf(onFraction) {
+    for (let f = 0; f <= 1; f += 0.25) {
+      onFraction(f);
+      await wait(200);
+    }
+    console.log("[mock] SealSuite would exit for its installer now");
+  },
 };

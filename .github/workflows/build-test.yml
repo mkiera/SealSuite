@@ -20,24 +20,20 @@ permissions:
 
 jobs:
   build:
-    # Private repository: GitHub-hosted minutes are blocked by the $0 budget, so this runs on the
-    # self-hosted CI VM. The container holds Tauri's Linux packages so the VM itself stays unchanged.
-    runs-on: [self-hosted, t3-linux]
-    container:
-      image: node:24-bookworm
+    # Public repository: GitHub-hosted minutes are free, and Windows builds the installer.
+    runs-on: windows-latest
 
     steps:
-      - name: Install Tauri system packages
-        run: |
-          apt-get update -qq
-          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
-            build-essential pkg-config libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
-            libayatana-appindicator3-dev librsvg2-dev
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -50,11 +46,60 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Calculate alpha version
+        run: node scripts/versioning.mjs alpha
+
       - name: Run frontend tests
         run: npm test
 
-      - name: Build the frontend
-        run: npm run build
-
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+
+      # npx, not `npm run tauri build -- --no-bundle`: npm swallows the flag.
+      - name: Build the app
+        shell: pwsh
+        run: npx tauri build --no-bundle --config "$env:SS_BUILD_CONFIG"
+
+      - name: Derive numeric version for the installer
+        id: vernum
+        shell: bash
+        run: |
+          VERNUM=$(node scripts/vernum.mjs)
+          VERSION=$(node scripts/vernum.mjs --raw)
+          echo "VERNUM=$VERNUM" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "version: $VERSION ($VERNUM)"
+
+      - name: Ensure Inno Setup is available
+        shell: pwsh
+        run: |
+          function Find-Iscc {
+            $onPath = (Get-Command iscc.exe -ErrorAction SilentlyContinue).Source
+            if ($onPath) { return $onPath }
+            # winget installs Inno per-user, outside both Program Files roots.
+            $globs = @("${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe", "$env:LOCALAPPDATA\Programs\Inno Setup *\ISCC.exe")
+            return (Get-ChildItem -Path $globs -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName)
+          }
+          $iscc = Find-Iscc
+          if (-not $iscc) {
+            Write-Host "Inno Setup not found on this runner - installing it."
+            choco install innosetup -y --no-progress
+            $iscc = Find-Iscc
+          }
+          if (-not $iscc) { throw "ISCC.exe still not found after installing Inno Setup" }
+          Write-Host "Using $iscc"
+          # Via GITHUB_ENV because a fresh choco shim is invisible to this step.
+          Add-Content -Path $env:GITHUB_ENV -Value "ISCC=$iscc"
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "$env:ISCC" "/DAppVersion=${{ steps.vernum.outputs.VERSION }}" "/DVersionNumeric=${{ steps.vernum.outputs.VERNUM }}" installer.iss
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SealSuite-Setup
+          path: dist_installer/SealSuite-Setup.exe
+          retention-days: 30
+          if-no-files-found: error
