@@ -1,0 +1,88 @@
+/* SealSuite - the dark navy and teal look shared with FinFetcher, FlipperClipper and BlubberBound.
+   Outfit, SIL Open Font License, see fonts/OFL.txt. */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400 600;
+  /* No swap period is needed for a local file — it is there on first paint */
+  font-display: block;
+  src: url('fonts/outfit-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: block;
+  src: url('fonts/outfit-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  /* Measured off FinFetcher's stylesheet: deep navy ground, 5%-white glass, teal accent. */
+  --bg: #0d1b2a;
+  --panel: rgba(255, 255, 255, 0.05);
+  --stage: #071120;
+  --fg: #ffffff;
+  --fg-dim: rgba(255, 255, 255, 0.6);
+  --line: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.1);
+  --hover: rgba(255, 255, 255, 0.1);
+  --sunken: rgba(0, 0, 0, 0.3);
+  --accent: #4a90a4;
+  --accent-glow: #6bc5d2;
+  --accent-2: #9d4edd;
+  --accent-fg: #ffffff;
+  --danger: #ff6b6b;
+  --shade: rgba(5, 10, 17, 0.66);
+  --glow: 0 0 20px rgba(74, 144, 164, 0.4);
+
+  --float: rgba(13, 27, 42, 0.82);
+
+  --radius: 10px;
+  --radius-panel: 16px;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(1100px 700px at 75% -10%, rgba(74, 144, 164, 0.22), transparent 60%),
+    radial-gradient(800px 600px at 5% 110%, rgba(157, 78, 221, 0.1), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: 'Outfit', -apple-system, 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.wordmark {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}

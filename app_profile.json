@@ -1,0 +1,14 @@
+{
+  "display_name": "SealSuite",
+  "description": "Manages the SealSuite apps",
+  "owner": "mkiera",
+  "repository": "SealSuite",
+  "storage_id": "SealSuite",
+  "package_id": "{85F762B8-AE7D-475C-8ADE-31DCFF61E6EF}",
+  "executable": "SealSuite.exe",
+  "installer_asset": "SealSuite-Setup.exe",
+  "alpha_artifact": "SealSuite-Setup",
+  "alpha_workflow": "build-test.yml",
+  "stable_branch": "main",
+  "beta_branch": "beta"
+}
