@@ -54,12 +54,26 @@ pub fn pick(releases: &[GhRelease], installed: Option<&str>, channel: Channel, a
         .max_by(|(a, _), (b, _)| a.cmp(b))?;
     if let Some(raw) = installed {
         // An installed version that does not parse cannot be compared, so nothing is offered.
-        if parse_version(raw).map_or(true, |current| version <= current) {
+        let Some(current) = parse_version(raw) else { return None };
+        if version <= current {
+            return None;
+        }
+        // An alpha is a branch build, usually ahead of the release with the same number
+        // (1.2.0-alpha.32 can hold commits made after v1.2.0). Only a higher release number is newer.
+        if is_alpha_build(&current) && core(&version) <= core(&current) {
             return None;
         }
     }
     let file = release.assets.iter().find(|a| a.name == asset)?;
     Some(Offer { version: version.to_string(), url: file.browser_download_url.clone(), size: file.size })
+}
+
+fn is_alpha_build(version: &Version) -> bool {
+    version.pre.as_str().starts_with("alpha")
+}
+
+fn core(version: &Version) -> (u64, u64, u64) {
+    (version.major, version.minor, version.patch)
 }
 
 pub fn user_agent() -> String {
@@ -139,6 +153,15 @@ mod tests {
     fn alpha_installs_and_unreadable_versions_get_no_offer() {
         assert_eq!(offered(Some("1.2.8"), Channel::Alpha), None);
         assert_eq!(offered(Some("1.2.8-custom build"), Channel::Stable), None);
+    }
+
+    #[test]
+    fn an_alpha_build_is_offered_only_a_higher_release_number() {
+        // 1.2.9-alpha.32 may hold commits made after v1.2.9, so v1.2.9 is not an update.
+        assert_eq!(offered(Some("1.2.9-alpha.32"), Channel::Stable), None);
+        assert_eq!(offered(Some("1.2.8-alpha.4"), Channel::Stable).as_deref(), Some("1.2.9"));
+        assert_eq!(offered(Some("1.3.0-alpha.7"), Channel::Prerelease), None);
+        assert_eq!(offered(Some("1.2.9-alpha.7"), Channel::Prerelease).as_deref(), Some("1.3.0-beta.2"));
     }
 
     #[test]

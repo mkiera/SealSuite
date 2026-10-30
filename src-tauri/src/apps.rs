@@ -14,6 +14,7 @@ pub struct CatalogApp {
     pub repo: &'static str,
     /// Inno Setup AppId from the app's installer.iss; the uninstall key is `<AppId>_is1`.
     pub app_id: &'static str,
+    /// The executable, relative to the install folder the uninstall entry names.
     pub exe: &'static str,
     pub asset: &'static str,
     channel_file: ChannelFile,
@@ -53,7 +54,8 @@ pub const CATALOG: [CatalogApp; 3] = [
         role: "Compressing",
         repo: "mkiera/BlubberBound",
         app_id: "{596690BB-D4AC-4C45-A35A-5C39B158156C}",
-        exe: "BlubberBound.exe",
+        // BlubberBound's installer puts its payload in an `app` subfolder so an update can swap it whole.
+        exe: r"app\BlubberBound.exe",
         asset: "BlubberBound-Setup.exe",
         channel_file: ChannelFile { base: "LOCALAPPDATA", path: r"BlubberBound\updates.json", key: "channel" },
     },
@@ -145,7 +147,7 @@ mod tests {
     fn catalog_ids_and_assets_are_consistent() {
         for app in &CATALOG {
             assert_eq!(app.repo, format!("mkiera/{}", app.name));
-            assert_eq!(app.exe, format!("{}.exe", app.name));
+            assert!(app.exe.ends_with(&format!("{}.exe", app.name)), "{}", app.exe);
             assert_eq!(app.asset, format!("{}-Setup.exe", app.name));
             assert!(app.app_id.starts_with('{') && app.app_id.ends_with('}'));
         }

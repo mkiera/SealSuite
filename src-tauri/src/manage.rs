@@ -113,8 +113,10 @@ pub async fn install_app(handle: AppHandle, id: String) -> Result<AppView, Strin
 pub fn open_app(id: String) -> Result<(), String> {
     let app = lookup(&id)?;
     let installed = apps::detect(app).ok_or_else(|| format!("{} is not installed.", app.name))?;
-    std::process::Command::new(installed.location.join(app.exe))
-        .current_dir(&installed.location)
+    let exe = installed.location.join(app.exe);
+    let folder = exe.parent().map(Path::to_path_buf).unwrap_or_else(|| installed.location.clone());
+    std::process::Command::new(&exe)
+        .current_dir(folder)
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("Could not open {}: {e}", app.name))
