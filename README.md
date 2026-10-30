@@ -8,8 +8,10 @@ installed and their versions, handles their updates on the stable, beta and
 alpha channels, manages the tools they share (FFmpeg, ffprobe, yt-dlp) and
 passes files from one app to another.
 
-This repository is a skeleton. The window is a placeholder, and none of the
-features above exist yet.
+Built so far: the main window lists the three apps, shows which are installed
+with their version and update channel, checks GitHub for updates, installs or
+updates an app with its own installer, opens it, and links to its GitHub page.
+Shared tools and hand-offs come after v1.
 
 ## Design rules
 

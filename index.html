@@ -3,14 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
     <title>SealSuite</title>
     <link rel="stylesheet" href="/src/styles.css" />
     <script type="module" src="/src/main.ts" defer></script>
   </head>
 
   <body>
-    <div id="app">
-      <h1 class="wordmark">SealSuite</h1>
-    </div>
+    <main class="wrap">
+      <header class="hero">
+        <h1 class="brand"><span class="seal" aria-hidden="true">🦭</span>SealSuite</h1>
+        <p>A Seal App Launcher &amp; Updater</p>
+        <small id="version">Made by Kiera</small>
+      </header>
+      <section id="strip" class="strip quiet" aria-live="polite"></section>
+      <section id="grid" class="grid" aria-label="Apps"></section>
+      <div class="more"><button id="check" class="button">Check now</button></div>
+    </main>
   </body>
 </html>
