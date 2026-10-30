@@ -281,10 +281,13 @@ button {
 .status.missing { color: var(--warn); }
 .status.unknown { color: var(--fg-dim); }
 
+/* Sits in the tile's bottom padding so a running install does not grow the tile. */
 .bar {
-  width: 100%;
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 7px;
   height: 4px;
-  margin-top: 14px;
   border-radius: 2px;
   background: var(--sunken);
   overflow: hidden;
